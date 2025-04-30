@@ -24,11 +24,13 @@
 /* Step 3: Uncomment your display driver in Arduino_GFX_display.h */
 #include "Arduino_GFX_display.h"
 
+
 #endif /* Manual define hardware */
 /*******************************************************************************
  * End of Arduino_GFX setting
  ******************************************************************************/
 
+#include "Fonts/FreeSerifBoldItalic12pt7b.h"
 #ifdef ESP32
 #undef F
 #define F(s) (s)
@@ -48,7 +50,9 @@ void printnice(const __FlashStringHelper *item, long int v);
 
 int32_t w, h, n, n1, cx, cy, cx1, cy1, cn, cn1;
 uint8_t tsa, tsb, tsc, ds;
-
+#include "TestOther.hpp"
+#include "Touch.hpp"
+#include "I2CScan.hpp"
 void setup()
 {
 #ifdef DEV_DEVICE_INIT
@@ -82,10 +86,20 @@ void setup()
   tsc = ((w <= 220) || (h <= 220)) ? 1 : 2;                                    // text size C
   ds = (w <= 160) ? 9 : ((w <= 280) ? 10 : 12);                                // digit size
 
-#ifdef GFX_BL
-  pinMode(GFX_BL, OUTPUT);
-  digitalWrite(GFX_BL, HIGH);
-#endif
+// #ifdef GFX_BL
+//   pinMode(GFX_BL, OUTPUT);
+//   digitalWrite(GFX_BL, HIGH);
+// #endif
+  setup2();
+  i2cscan();
+  setupTouch();
+  i2cscan();
+  delay(1000);
+  gfx->setCursor(50,50);
+  gfx->setTextSize(1);
+  gfx->setFont(&FreeSerifBoldItalic12pt7b);
+  gfx->println(F("Touch test"));
+  //gfx->setFont()
 }
 
 static inline uint32_t micros_start() __attribute__((always_inline));
@@ -97,124 +111,7 @@ static inline uint32_t micros_start()
   return micros();
 }
 
-void loop(void)
-{
-  Serial.println(F("Benchmark\tmicro-secs"));
 
-  int32_t usecFillScreen = testFillScreen();
-  serialOut(F("Screen fill\t"), usecFillScreen, 100, true);
-
-  int32_t usecText = testText();
-  serialOut(F("Text\t"), usecText, 3000, true);
-
-  int32_t usecPixels = testPixels();
-  serialOut(F("Pixels\t"), usecPixels, 100, true);
-
-  int32_t usecLines = testLines();
-  serialOut(F("Lines\t"), usecLines, 100, true);
-
-  int32_t usecFastLines = testFastLines();
-  serialOut(F("Horiz/Vert Lines\t"), usecFastLines, 100, true);
-
-  int32_t usecFilledRects = testFilledRects();
-  serialOut(F("Rectangles (filled)\t"), usecFilledRects, 100, false);
-
-  int32_t usecRects = testRects();
-  serialOut(F("Rectangles (outline)\t"), usecRects, 100, true);
-
-  int32_t usecFilledTrangles = testFilledTriangles();
-  serialOut(F("Triangles (filled)\t"), usecFilledTrangles, 100, false);
-
-  int32_t usecTriangles = testTriangles();
-  serialOut(F("Triangles (outline)\t"), usecTriangles, 100, true);
-
-  int32_t usecFilledCircles = testFilledCircles(10);
-  serialOut(F("Circles (filled)\t"), usecFilledCircles, 100, false);
-
-  int32_t usecCircles = testCircles(10);
-  serialOut(F("Circles (outline)\t"), usecCircles, 100, true);
-
-  int32_t usecFilledArcs = testFillArcs();
-  serialOut(F("Arcs (filled)\t"), usecFilledArcs, 100, false);
-
-  int32_t usecArcs = testArcs();
-  serialOut(F("Arcs (outline)\t"), usecArcs, 100, true);
-
-  int32_t usecFilledRoundRects = testFilledRoundRects();
-  serialOut(F("Rounded rects (filled)\t"), usecFilledRoundRects, 100, false);
-
-  int32_t usecRoundRects = testRoundRects();
-  serialOut(F("Rounded rects (outline)\t"), usecRoundRects, 100, true);
-
-#ifdef CANVAS
-  uint32_t start = micros_start();
-  gfx->flush();
-  int32_t usecFlush = micros() - start;
-  serialOut(F("flush (Canvas only)\t"), usecFlush, 0, false);
-#endif
-
-  Serial.println(F("Done!"));
-
-  uint16_t c = 4;
-  int8_t d = 1;
-  for (int32_t i = 0; i < h; i++)
-  {
-    gfx->drawFastHLine(0, i, w, c);
-    c += d;
-    if (c <= 4 || c >= 11)
-    {
-      d = -d;
-    }
-  }
-
-  gfx->setCursor(0, 0);
-
-  gfx->setTextSize(tsa);
-  gfx->setTextColor(RGB565_MAGENTA);
-  gfx->println(F("Arduino GFX PDQ"));
-
-  if (h > w)
-  {
-    gfx->setTextSize(tsb);
-    gfx->setTextColor(RGB565_GREEN);
-    gfx->print(F("\nBenchmark "));
-    gfx->setTextSize(tsc);
-    if (ds == 12)
-    {
-      gfx->print(F("   "));
-    }
-    gfx->println(F("micro-secs"));
-  }
-
-  printnice(F("Screen fill "), usecFillScreen);
-  printnice(F("Text        "), usecText);
-  printnice(F("Pixels      "), usecPixels);
-  printnice(F("Lines       "), usecLines);
-  printnice(F("H/V Lines   "), usecFastLines);
-  printnice(F("Rectangles F"), usecFilledRects);
-  printnice(F("Rectangles  "), usecRects);
-  printnice(F("Triangles F "), usecFilledTrangles);
-  printnice(F("Triangles   "), usecTriangles);
-  printnice(F("Circles F   "), usecFilledCircles);
-  printnice(F("Circles     "), usecCircles);
-  printnice(F("Arcs F      "), usecFilledArcs);
-  printnice(F("Arcs        "), usecArcs);
-  printnice(F("RoundRects F"), usecFilledRoundRects);
-  printnice(F("RoundRects  "), usecRoundRects);
-
-  if ((h > w) || (h > 240))
-  {
-    gfx->setTextSize(tsc);
-    gfx->setTextColor(RGB565_GREEN);
-    gfx->print(F("\nBenchmark Complete!"));
-  }
-
-#ifdef CANVAS
-  gfx->flush();
-#endif
-
-  delay(60 * 1000L);
-}
 
 #ifdef ESP32
 void serialOut(const char *item, int32_t v, uint32_t d, bool clear)
@@ -671,6 +568,127 @@ int32_t testRoundRects()
   return micros() - start;
 }
 
+void loop(void)
+{
+  loopTouch();
+  return;
+  Serial.println(F("Benchmark\tmicro-secs"));
+
+  int32_t usecFillScreen = testFillScreen();
+  serialOut(F("Screen fill\t"), usecFillScreen, 100, true);
+
+  int32_t usecText = testText();
+  serialOut(F("Text\t"), usecText, 3000, true);
+
+  int32_t usecPixels = testPixels();
+  serialOut(F("Pixels\t"), usecPixels, 100, true);
+
+  int32_t usecLines = testLines();
+  serialOut(F("Lines\t"), usecLines, 100, true);
+
+  int32_t usecFastLines = testFastLines();
+  serialOut(F("Horiz/Vert Lines\t"), usecFastLines, 100, true);
+
+  int32_t usecFilledRects = testFilledRects();
+  serialOut(F("Rectangles (filled)\t"), usecFilledRects, 100, false);
+
+  int32_t usecRects = testRects();
+  serialOut(F("Rectangles (outline)\t"), usecRects, 100, true);
+
+  int32_t usecFilledTrangles = testFilledTriangles();
+  serialOut(F("Triangles (filled)\t"), usecFilledTrangles, 100, false);
+
+  int32_t usecTriangles = testTriangles();
+  serialOut(F("Triangles (outline)\t"), usecTriangles, 100, true);
+
+  int32_t usecFilledCircles = testFilledCircles(10);
+  serialOut(F("Circles (filled)\t"), usecFilledCircles, 100, false);
+
+  int32_t usecCircles = testCircles(10);
+  serialOut(F("Circles (outline)\t"), usecCircles, 100, true);
+
+  int32_t usecFilledArcs = testFillArcs();
+  serialOut(F("Arcs (filled)\t"), usecFilledArcs, 100, false);
+
+  int32_t usecArcs = testArcs();
+  serialOut(F("Arcs (outline)\t"), usecArcs, 100, true);
+
+  int32_t usecFilledRoundRects = testFilledRoundRects();
+  serialOut(F("Rounded rects (filled)\t"), usecFilledRoundRects, 100, false);
+
+  int32_t usecRoundRects = testRoundRects();
+  serialOut(F("Rounded rects (outline)\t"), usecRoundRects, 100, true);
+
+#ifdef CANVAS
+  uint32_t start = micros_start();
+  gfx->flush();
+  int32_t usecFlush = micros() - start;
+  serialOut(F("flush (Canvas only)\t"), usecFlush, 0, false);
+#endif
+
+  Serial.println(F("Done!"));
+
+  uint16_t c = 4;
+  int8_t d = 1;
+  for (int32_t i = 0; i < h; i++)
+  {
+    gfx->drawFastHLine(0, i, w, c);
+    c += d;
+    if (c <= 4 || c >= 11)
+    {
+      d = -d;
+    }
+  }
+
+  gfx->setCursor(0, 0);
+
+  gfx->setTextSize(tsa);
+  gfx->setTextColor(RGB565_MAGENTA);
+  gfx->println(F("Arduino GFX PDQ"));
+
+  if (h > w)
+  {
+    gfx->setTextSize(tsb);
+    gfx->setTextColor(RGB565_GREEN);
+    gfx->print(F("\nBenchmark "));
+    gfx->setTextSize(tsc);
+    if (ds == 12)
+    {
+      gfx->print(F("   "));
+    }
+    gfx->println(F("micro-secs"));
+  }
+
+  printnice(F("Screen fill "), usecFillScreen);
+  printnice(F("Text        "), usecText);
+  printnice(F("Pixels      "), usecPixels);
+  printnice(F("Lines       "), usecLines);
+  printnice(F("H/V Lines   "), usecFastLines);
+  printnice(F("Rectangles F"), usecFilledRects);
+  printnice(F("Rectangles  "), usecRects);
+  printnice(F("Triangles F "), usecFilledTrangles);
+  printnice(F("Triangles   "), usecTriangles);
+  printnice(F("Circles F   "), usecFilledCircles);
+  printnice(F("Circles     "), usecCircles);
+  printnice(F("Arcs F      "), usecFilledArcs);
+  printnice(F("Arcs        "), usecArcs);
+  printnice(F("RoundRects F"), usecFilledRoundRects);
+  printnice(F("RoundRects  "), usecRoundRects);
+
+  if ((h > w) || (h > 240))
+  {
+    gfx->setTextSize(tsc);
+    gfx->setTextColor(RGB565_GREEN);
+    gfx->print(F("\nBenchmark Complete!"));
+  }
+
+#ifdef CANVAS
+  gfx->flush();
+#endif
+
+  delay(60 * 1000L);
+}
+
 /***************************************************
   Original sketch text:
 
@@ -688,3 +706,4 @@ int32_t testRoundRects()
   Written by Limor Fried/Ladyada for Adafruit Industries.
   MIT license, all text above must be included in any redistribution
  ****************************************************/
+
